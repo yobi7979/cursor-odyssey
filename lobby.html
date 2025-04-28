@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>게임 로비</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: white;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #4CAF50;
+        }
+        
+        .room-list {
+            background-color: #2a2a2a;
+            border-radius: 5px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .room {
+            background-color: #3a3a3a;
+            border-radius: 3px;
+            padding: 10px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .room:hover {
+            background-color: #4a4a4a;
+            cursor: pointer;
+        }
+        
+        .room-info {
+            flex-grow: 1;
+        }
+        
+        .room-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .room-status {
+            font-size: 0.9em;
+            color: #aaa;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        button:disabled {
+            background-color: #666;
+            cursor: not-allowed;
+        }
+        
+        input {
+            flex-grow: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 3px;
+            background-color: #2a2a2a;
+            color: white;
+        }
+        
+        input::placeholder {
+            color: #aaa;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        
+        .modal-content {
+            background-color: #2a2a2a;
+            padding: 20px;
+            border-radius: 5px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            min-width: 300px;
+        }
+        
+        .ready-status {
+            color: #4CAF50;
+            margin-left: 10px;
+        }
+        
+        .not-ready {
+            color: #ff4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>게임 로비</h1>
+        
+        <div class="controls">
+            <input type="text" id="playerName" placeholder="플레이어 이름을 입력하세요">
+            <input type="text" id="roomName" placeholder="방 이름을 입력하세요">
+            <button id="createRoom">방 만들기</button>
+        </div>
+        
+        <div class="room-list" id="roomList">
+            <!-- 방 목록이 여기에 동적으로 추가됩니다 -->
+        </div>
+    </div>
+    
+    <div class="modal" id="roomModal">
+        <div class="modal-content">
+            <h2 id="modalRoomName">방 이름</h2>
+            <div id="playerList">
+                <!-- 플레이어 목록이 여기에 동적으로 추가됩니다 -->
+            </div>
+            <button id="readyButton">준비</button>
+            <button id="leaveRoom">나가기</button>
+        </div>
+    </div>
+    
+    <script src="js/network.js"></script>
+    <script>
+        // 전역 변수
+        let currentRoom = null;
+        let isReady = false;
+        
+        // DOM 요소
+        const playerNameInput = document.getElementById('playerName');
+        const roomNameInput = document.getElementById('roomName');
+        const createRoomButton = document.getElementById('createRoom');
+        const roomListDiv = document.getElementById('roomList');
+        const roomModal = document.getElementById('roomModal');
+        const modalRoomName = document.getElementById('modalRoomName');
+        const playerListDiv = document.getElementById('playerList');
+        const readyButton = document.getElementById('readyButton');
+        const leaveRoomButton = document.getElementById('leaveRoom');
+        
+        // 네트워크 이벤트 핸들러
+        networkManager.on('connected', () => {
+            console.log('서버에 연결됨');
+        });
+        
+        networkManager.on('roomList', (rooms) => {
+            updateRoomList(rooms);
+        });
+        
+        networkManager.on('joinSuccess', (data) => {
+            currentRoom = data.roomId;
+            showRoomModal(data);
+        });
+        
+        networkManager.on('playerJoined', (data) => {
+            if (currentRoom) {
+                updatePlayerList();
+            }
+        });
+        
+        networkManager.on('playerLeft', (data) => {
+            if (currentRoom) {
+                updatePlayerList();
+            }
+        });
+        
+        networkManager.on('playerReady', (data) => {
+            if (currentRoom) {
+                updatePlayerList();
+            }
+        });
+        
+        networkManager.on('gameStart', () => {
+            window.location.href = '/game.html';
+        });
+        
+        // 이벤트 리스너
+        createRoomButton.addEventListener('click', () => {
+            const playerName = playerNameInput.value.trim();
+            const roomName = roomNameInput.value.trim();
+            
+            if (playerName && roomName) {
+                networkManager.createRoom(roomName);
+            }
+        });
+        
+        readyButton.addEventListener('click', () => {
+            isReady = !isReady;
+            networkManager.setReady(isReady);
+            readyButton.textContent = isReady ? '준비 취소' : '준비';
+        });
+        
+        leaveRoomButton.addEventListener('click', () => {
+            currentRoom = null;
+            roomModal.style.display = 'none';
+            isReady = false;
+        });
+        
+        // 유틸리티 함수
+        function updateRoomList(rooms) {
+            roomListDiv.innerHTML = '';
+            
+            rooms.forEach(room => {
+                const roomDiv = document.createElement('div');
+                roomDiv.className = 'room';
+                
+                roomDiv.innerHTML = `
+                    <div class="room-info">
+                        <div class="room-name">${room.name}</div>
+                        <div class="room-status">
+                            플레이어: ${room.playerCount}/${room.maxPlayers}
+                            ${room.state === 'playing' ? ' (게임 중)' : ''}
+                        </div>
+                    </div>
+                `;
+                
+                if (room.state !== 'playing') {
+                    roomDiv.addEventListener('click', () => {
+                        const playerName = playerNameInput.value.trim();
+                        if (playerName) {
+                            networkManager.joinRoom(room.id, playerName);
+                        }
+                    });
+                }
+                
+                roomListDiv.appendChild(roomDiv);
+            });
+        }
+        
+        function showRoomModal(data) {
+            modalRoomName.textContent = data.roomName;
+            roomModal.style.display = 'block';
+            updatePlayerList();
+        }
+        
+        function updatePlayerList() {
+            // 플레이어 목록 업데이트 로직
+            // 서버로부터 받은 데이터를 기반으로 구현
+        }
+        
+        // 네트워크 연결
+        networkManager.connect();
+    </script>
+</body>
+</html> 
