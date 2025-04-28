@@ -4,13 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cursor Odyssey</title>
-    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #1a1a1a;
+        }
+        canvas {
+            border: 2px solid #333;
+        }
+    </style>
 </head>
 <body>
-    <div id="game-container">
-        <canvas id="game-canvas"></canvas>
-    </div>
+    <canvas id="gameCanvas"></canvas>
+    <script src="js/map.js"></script>
     <script src="js/player.js"></script>
+    <script src="js/skill.js"></script>
+    <script src="js/passive.js"></script>
     <script src="js/game.js"></script>
 </body>
 </html> 
