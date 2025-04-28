@@ -9,9 +9,16 @@ class Game {
         
         // 게임 시스템 초기화
         this.map = new Map(this);
-        this.player = new Player(this.canvas.width / 2, this.canvas.height / 2);
+        this.player = new Player(this, this.canvas.width / 2, this.canvas.height / 2);
         this.skillManager = new SkillManager();
         this.passiveManager = new PassiveManager();
+        this.effects = new EffectManager();
+        
+        // 적 관리
+        this.enemies = [];
+        this.enemySpawnTimer = 0;
+        this.enemySpawnInterval = 3000; // 3초마다 적 생성
+        this.maxEnemies = 10;
         
         // 이벤트 리스너 설정
         this.setupEventListeners();
@@ -37,14 +44,45 @@ class Game {
                 this.debug = !this.debug;
             }
         });
+        
+        // 마우스 이벤트 (공격용)
+        this.canvas.addEventListener('click', (e) => {
+            const rect = this.canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // 플레이어 공격
+            if (this.player.mode === 'attack') {
+                this.player.attack(x, y);
+            }
+        });
+    }
+    
+    spawnEnemy() {
+        if (this.enemies.length < this.maxEnemies) {
+            const types = ['normal', 'fast', 'tank'];
+            const randomType = types[Math.floor(Math.random() * types.length)];
+            this.enemies.push(new Enemy(this, randomType));
+        }
     }
     
     update(deltaTime) {
+        // 적 생성
+        this.enemySpawnTimer += deltaTime;
+        if (this.enemySpawnTimer >= this.enemySpawnInterval) {
+            this.spawnEnemy();
+            this.enemySpawnTimer = 0;
+        }
+        
         // 플레이어 업데이트
         this.player.update(deltaTime);
         
-        // 맵 업데이트
-        // (현재는 업데이트 로직이 없음)
+        // 적 업데이트
+        this.enemies = this.enemies.filter(enemy => enemy.isAlive);
+        this.enemies.forEach(enemy => enemy.update(deltaTime));
+        
+        // 이펙트 업데이트
+        this.effects.update(deltaTime);
     }
     
     render() {
@@ -54,8 +92,14 @@ class Game {
         // 맵 렌더링
         this.map.render(this.ctx);
         
+        // 적 렌더링
+        this.enemies.forEach(enemy => enemy.render(this.ctx));
+        
         // 플레이어 렌더링
         this.player.render(this.ctx);
+        
+        // 이펙트 렌더링
+        this.effects.render(this.ctx);
         
         // 디버그 정보 표시
         if (this.debug) {
@@ -74,7 +118,8 @@ class Game {
             `Health: ${this.player.health}/${this.player.maxHealth}`,
             `Level: ${this.player.level}`,
             `Experience: ${this.player.experience}/${this.player.experienceToNextLevel}`,
-            `Mode: ${this.player.mode}`
+            `Mode: ${this.player.mode}`,
+            `Enemies: ${this.enemies.length}/${this.maxEnemies}`
         ];
         
         debugInfo.forEach((info, index) => {
